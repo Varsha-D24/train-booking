@@ -1,0 +1,46 @@
+1️⃣ Initialize the project folders:
+We'll create two separate directories:
+
+pgsql
+train-reservation-system/
+├── client/    → Next.js frontend
+└── server/    → Node.js + Express backend
+2️⃣ Set up the Backend (server/)
+📁 Folder structure:
+pgsql
+
+server/
+├── controllers/
+├── models/
+├── routes/
+├── middleware/
+├── config/
+├── utils/
+├── .env
+├── index.js
+└── package.json
+🔧 Installation
+Open your terminal and run:
+
+Edit
+mkdir -p train-reservation-system/server && cd train-reservation-system/server
+npm init -y
+npm install express cors dotenv pg bcrypt jsonwebtoken
+npm install --save-dev nodemon
+✍️ package.json update:
+json
+Copy
+Edit
+"scripts": {
+  "start": "node index.js",
+  "dev": "nodemon index.js"
+}
+3️⃣ Set up the Frontend (client/)
+Open another terminal tab and run:
+
+bash
+
+cd train-reservation-system
+npx create-next-app@latest client
+cd client
+npm install axios
