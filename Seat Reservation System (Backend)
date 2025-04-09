@@ -1,0 +1,154 @@
+1. Database Design for Seats and Bookings
+Run this in PostgreSQL:
+
+sql
+Copy
+Edit
+CREATE TABLE seats (
+  id SERIAL PRIMARY KEY,
+  seat_number INT UNIQUE NOT NULL,
+  row_number INT NOT NULL,
+  is_booked BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE bookings (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id),
+  seat_ids INT[],
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+💡 We'll store an array of seat IDs for each booking, assuming single coach logic.
+
+✅ 2. Seed Initial Seats (7 per row, last row 3 seats)
+📁 server/utils/seedSeats.js
+
+js
+Copy
+Edit
+const pool = require('../config/db');
+
+const seedSeats = async () => {
+  try {
+    await pool.query('DELETE FROM seats');
+    let seatNumber = 1;
+
+    for (let row = 1; row <= 12; row++) {
+      const seatsInRow = row === 12 ? 3 : 7;
+
+      for (let i = 0; i < seatsInRow; i++) {
+        await pool.query('INSERT INTO seats(seat_number, row_number) VALUES ($1, $2)', [seatNumber, row]);
+        seatNumber++;
+      }
+    }
+
+    console.log('Seats seeded!');
+    process.exit();
+  } catch (err) {
+    console.error(err);
+    process.exit();
+  }
+};
+
+seedSeats();
+Run with:
+
+bash
+Copy
+Edit
+node utils/seedSeats.js
+✅ 3. Seat Booking Logic
+📁 server/controllers/bookingController.js
+
+js
+Copy
+Edit
+const pool = require('../config/db');
+
+exports.bookSeats = async (req, res) => {
+  const { userId, count } = req.body;
+
+  if (count < 1 || count > 7) {
+    return res.status(400).json({ message: 'Invalid seat count. Max 7 allowed.' });
+  }
+
+  try {
+    const { rows: availableSeats } = await pool.query(
+      'SELECT * FROM seats WHERE is_booked = FALSE ORDER BY row_number, seat_number'
+    );
+
+    if (availableSeats.length < count) {
+      return res.status(400).json({ message: 'Not enough seats available' });
+    }
+
+    // Group by row
+    const grouped = {};
+    for (const seat of availableSeats) {
+      if (!grouped[seat.row_number]) grouped[seat.row_number] = [];
+      grouped[seat.row_number].push(seat);
+    }
+
+    let selected = [];
+
+    // Priority 1: Same row
+    for (const row in grouped) {
+      if (grouped[row].length >= count) {
+        selected = grouped[row].slice(0, count);
+        break;
+      }
+    }
+
+    // Priority 2: Nearby seats if no same row found
+    if (selected.length === 0) {
+      selected = availableSeats.slice(0, count);
+    }
+
+    const seatIds = selected.map(s => s.id);
+
+    // Update seats as booked
+    await pool.query(
+      'UPDATE seats SET is_booked = TRUE WHERE id = ANY($1)',
+      [seatIds]
+    );
+
+    // Insert booking
+    const result = await pool.query(
+      'INSERT INTO bookings(user_id, seat_ids) VALUES ($1, $2) RETURNING *',
+      [userId, seatIds]
+    );
+
+    res.status(200).json({ message: 'Seats booked', booking: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+✅ 4. Booking Route
+📁 server/routes/bookingRoutes.js
+
+js
+Copy
+Edit
+const express = require('express');
+const router = express.Router();
+const bookingController = require('../controllers/bookingController');
+
+router.post('/book', bookingController.bookSeats);
+
+module.exports = router;
+Add to index.js:
+
+js
+Copy
+Edit
+const bookingRoutes = require('./routes/bookingRoutes');
+app.use('/api/booking', bookingRoutes);
+🧪 Test Booking
+POST /api/booking/book
+Body:
+
+json
+Copy
+Edit
+{
+  "userId": 1,
+  "count": 5
+}
