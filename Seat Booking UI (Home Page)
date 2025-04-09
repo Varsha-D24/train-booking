@@ -1,0 +1,117 @@
+✅ 1. Basic Home Page Structure
+📁 client/pages/home.js
+
+js
+Copy
+Edit
+import { useEffect, useState } from 'react';
+import api from '../utils/api';
+
+export default function Home() {
+  const [seats, setSeats] = useState([]);
+  const [selected, setSelected] = useState([]);
+  const [numSeats, setNumSeats] = useState(1);
+  const [bookingId, setBookingId] = useState(null);
+  const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+
+  useEffect(() => {
+    fetchSeats();
+  }, []);
+
+  const fetchSeats = async () => {
+    const res = await api.get('/train/seats');
+    setSeats(res.data.seats);
+  };
+
+  const handleBook = async () => {
+    if (!userId) return alert('Please log in again.');
+    try {
+      const res = await api.post('/booking/book', { userId, numSeats });
+      setSelected(res.data.seats);
+      setBookingId(res.data.bookingId);
+      fetchSeats();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Booking failed');
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!bookingId) return alert('No booking to cancel');
+    try {
+      await api.delete(`/booking/cancel/${bookingId}`);
+      setSelected([]);
+      setBookingId(null);
+      fetchSeats();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Cancel failed');
+    }
+  };
+
+  const renderSeats = () => {
+    return [...Array(12)].map((_, row) => (
+      <div key={row} style={{ display: 'flex', marginBottom: 10 }}>
+        {[...Array(7)].map((_, col) => {
+          const index = row * 7 + col;
+          const seat = seats[index];
+          return (
+            <div
+              key={index}
+              style={{
+                width: 30,
+                height: 30,
+                margin: 4,
+                backgroundColor: selected.includes(seat?.id)
+                  ? 'orange'
+                  : seat?.is_booked
+                  ? 'red'
+                  : 'lightgreen',
+                textAlign: 'center',
+                lineHeight: '30px',
+                borderRadius: 4,
+              }}
+            >
+              {index + 1}
+            </div>
+          );
+        })}
+      </div>
+    ));
+  };
+
+  return (
+    <div style={{ padding: 40 }}>
+      <h2>Train Seat Reservation</h2>
+
+      <div>
+        <label>No. of seats to book: </label>
+        <input
+          type="number"
+          value={numSeats}
+          min="1"
+          max="7"
+          onChange={(e) => setNumSeats(parseInt(e.target.value))}
+        />
+        <button onClick={handleBook} style={{ marginLeft: 10 }}>
+          Book
+        </button>
+        <button onClick={handleCancel} style={{ marginLeft: 10 }}>
+          Cancel
+        </button>
+      </div>
+
+      <h4 style={{ marginTop: 30 }}>Seat Layout</h4>
+      {renderSeats()}
+    </div>
+  );
+}
+✅ 2. Test the Booking System
+Go to http://localhost:3000/signup, create user
+
+Login → redirect to /home
+
+Try booking 2–7 seats
+
+Click "Cancel" to reset the booking
+
+✅ 3. Bonus Styling (Optional)
+Add a simple CSS file or Tailwind for cleaner UI later if needed.
