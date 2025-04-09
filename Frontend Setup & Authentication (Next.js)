@@ -1,0 +1,130 @@
+1. Install and Set Up Next.js
+In your project root:
+
+bash
+Copy
+Edit
+npx create-next-app@latest client
+cd client
+npm install axios
+Set up proxy in client/next.config.js:
+
+js
+Copy
+Edit
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:5000/api/:path*',
+      },
+    ];
+  },
+};
+
+module.exports = nextConfig;
+✅ 2. Setup Basic Pages & State
+Create file:
+📁 client/pages/login.js
+📁 client/pages/signup.js
+📁 client/pages/home.js
+
+And a helper for Axios:
+📁 client/utils/api.js
+
+js
+Copy
+Edit
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: '/api',
+});
+
+export default api;
+✅ 3. Signup Page
+📁 client/pages/signup.js
+
+js
+Copy
+Edit
+import { useState } from 'react';
+import api from '../utils/api';
+import { useRouter } from 'next/router';
+
+export default function Signup() {
+  const [form, setForm] = useState({ username: '', password: '' });
+  const router = useRouter();
+
+  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    try {
+      await api.post('/auth/signup', form);
+      alert('Signup successful!');
+      router.push('/login');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error signing up');
+    }
+  };
+
+  return (
+    <div style={{ padding: 40 }}>
+      <h2>Signup</h2>
+      <form onSubmit={handleSubmit}>
+        <input name="username" onChange={handleChange} placeholder="Username" required /><br />
+        <input name="password" type="password" onChange={handleChange} placeholder="Password" required /><br />
+        <button type="submit">Signup</button>
+      </form>
+    </div>
+  );
+}
+✅ 4. Login Page
+📁 client/pages/login.js
+
+js
+Copy
+Edit
+import { useState } from 'react';
+import api from '../utils/api';
+import { useRouter } from 'next/router';
+
+export default function Login() {
+  const [form, setForm] = useState({ username: '', password: '' });
+  const router = useRouter();
+
+  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    try {
+      const res = await api.post('/auth/login', form);
+      localStorage.setItem('userId', res.data.user.id);
+      router.push('/home');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Login failed');
+    }
+  };
+
+  return (
+    <div style={{ padding: 40 }}>
+      <h2>Login</h2>
+      <form onSubmit={handleSubmit}>
+        <input name="username" onChange={handleChange} placeholder="Username" required /><br />
+        <input name="password" type="password" onChange={handleChange} placeholder="Password" required /><br />
+        <button type="submit">Login</button>
+      </form>
+    </div>
+  );
+}
+✅ 5. Test It
+Run both:
+
+Backend: npm run dev in server
+
+Frontend: npm run dev in client
+
+Then go to http://localhost:3000/signup, sign up a user → log in → get redirected to /home (we’ll build this next).
