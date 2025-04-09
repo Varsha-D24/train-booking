@@ -1,0 +1,145 @@
+✅ 1. Environment Config
+Create .env in server/:
+
+env
+Copy
+Edit
+PORT=5000
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=train_reservation
+JWT_SECRET=your_jwt_secret
+✅ 2. Database Setup
+Run this SQL in PostgreSQL:
+
+sql
+Copy
+Edit
+CREATE DATABASE train_reservation;
+
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100),
+  email VARCHAR(100) UNIQUE NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+✅ 3. Database Connection
+📁 server/config/db.js
+
+js
+Copy
+Edit
+const { Pool } = require('pg');
+require('dotenv').config();
+
+const pool = new Pool({
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+});
+
+module.exports = pool;
+✅ 4. Auth Controller
+📁 server/controllers/authController.js
+
+js
+Copy
+Edit
+const pool = require('../config/db');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+
+exports.signup = async (req, res) => {
+  const { name, email, password } = req.body;
+  try {
+    const hashed = await bcrypt.hash(password, 10);
+    const result = await pool.query(
+      'INSERT INTO users(name, email, password) VALUES($1, $2, $3) RETURNING *',
+      [name, email, hashed]
+    );
+    res.status(201).json({ message: 'User created', user: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.login = async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (userResult.rows.length === 0) return res.status(400).json({ message: 'Invalid credentials' });
+
+    const valid = await bcrypt.compare(password, userResult.rows[0].password);
+    if (!valid) return res.status(400).json({ message: 'Invalid credentials' });
+
+    const token = jwt.sign({ userId: userResult.rows[0].id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    res.json({ token });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+✅ 5. Routes
+📁 server/routes/authRoutes.js
+
+js
+Copy
+Edit
+const express = require('express');
+const router = express.Router();
+const authController = require('../controllers/authController');
+
+router.post('/signup', authController.signup);
+router.post('/login', authController.login);
+
+module.exports = router;
+✅ 6. Middleware & App Initialization
+📁 server/index.js
+
+js
+Copy
+Edit
+const express = require('express');
+const cors = require('cors');
+require('dotenv').config();
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Routes
+const authRoutes = require('./routes/authRoutes');
+app.use('/api/auth', authRoutes);
+
+app.get('/', (req, res) => res.send('API Running'));
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+✅ Test API
+Use Postman or Thunder Client:
+
+POST /api/auth/signup
+
+json
+Copy
+Edit
+{
+  "name": "Varsha",
+  "email": "varsha@email.com",
+  "password": "secure123"
+}
+POST /api/auth/login
+
+json
+Copy
+Edit
+{
+  "email": "varsha@email.com",
+  "password": "secure123"
+}
