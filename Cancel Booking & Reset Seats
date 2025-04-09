@@ -1,0 +1,51 @@
+✅ 1. Cancel Booking API
+📁 server/controllers/bookingController.js → add this function:
+
+js
+Copy
+Edit
+exports.cancelBooking = async (req, res) => {
+  const { bookingId } = req.params;
+
+  try {
+    const { rows: bookingRows } = await pool.query('SELECT * FROM bookings WHERE id = $1', [bookingId]);
+
+    if (bookingRows.length === 0) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    const seatIds = bookingRows[0].seat_ids;
+
+    // Unbook seats
+    await pool.query('UPDATE seats SET is_booked = FALSE WHERE id = ANY($1)', [seatIds]);
+
+    // Delete booking
+    await pool.query('DELETE FROM bookings WHERE id = $1', [bookingId]);
+
+    res.status(200).json({ message: 'Booking cancelled and seats unbooked' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+✅ 2. Cancel Booking Route
+📁 server/routes/bookingRoutes.js → add this:
+
+js
+Copy
+Edit
+router.delete('/cancel/:bookingId', bookingController.cancelBooking);
+🧪 Test Cancel API
+DELETE /api/booking/cancel/1
+(Assuming booking ID is 1)
+
+✅ Backend Complete!
+Includes:
+
+Auth (signup/login)
+
+Book seats (prioritizing same row)
+
+Cancel booking
+
+PostgreSQL schema + seed
+
